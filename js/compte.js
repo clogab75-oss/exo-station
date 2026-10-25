@@ -19,7 +19,7 @@ function renderAuth() {
     clear(bar).append(...tabs.map(([id, label]) => h("button", { class: "tab", role: "tab", type: "button", "aria-selected": String(id === mode), onclick: () => { mode = id; paint(); } }, label)));
     clear(body).append(mode === "login" ? loginForm() : registerForm());
   };
-  app.append(h("h1", {}, "Mon compte"), bar, body);
+  app.replaceChildren(h("h1", {}, "Mon compte"), bar, body);
   paint();
 
   function fields(withHint) {
@@ -78,7 +78,7 @@ function renderAuth() {
 /* ------------------------------------------------------------------ espace client */
 async function renderAccount() {
   const list = h("div", {}, h("p", { class: "muted" }, "Chargement de tes réservations…"));
-  app.append(
+  app.replaceChildren(
     h("div", { style: "display:flex;gap:1rem;align-items:center;flex-wrap:wrap" },
       h("h1", { style: "margin:0" }, `${profile.prenom_rp} ${profile.nom_rp}`),
       h("button", { class: "btn btn-ghost btn-sm", type: "button", onclick: logout }, "Se déconnecter"),

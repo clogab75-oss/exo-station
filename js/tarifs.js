@@ -4,9 +4,9 @@ await initChrome("tarifs");
 const app = document.getElementById("app");
 const box = h("div", {});
 const rules = h("div", {});
-app.append(
+app.replaceChildren(
   h("h1", {}, "Tarifs"),
-  h("p", { class: "lead muted" }, "Le prix du diesel vient directement du serveur de jeu. Il ne peut pas être modifié depuis ce site."),
+  h("p", { class: "lead muted" }, "Le prix du gazole vient directement du serveur de jeu. Il ne peut pas être modifié depuis ce site."),
   box,
   h("h2", { style: "margin-top:2.5rem" }, "Publicité sur les panneaux"), rules);
 
@@ -19,7 +19,7 @@ async function load() {
         h("p", { style: "margin:.3rem 0 0" }, "Aucune synchronisation n'a encore eu lieu. Le prix apparaîtra ici automatiquement.")));
     } else {
       box.append(h("div", { class: "kpis" },
-        h("div", { class: "kpi" }, "Diesel", h("b", {}, `${priceText(f.price)} €`)),
+        h("div", { class: "kpi" }, "Gazole", h("b", {}, `${priceText(f.price)} €`)),
         h("div", { class: "kpi" }, "Dernière synchronisation", h("b", { style: "font-size:1.3rem" }, frDateTime(f.synced_at)))));
       if (f.is_stale) box.append(h("div", { class: "notice warn" }, "Ce prix n'a pas été actualisé récemment : il peut avoir changé en jeu."));
     }

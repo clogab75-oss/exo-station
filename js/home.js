@@ -10,9 +10,9 @@ export function totem() {
   const foot = h("div", { class: "totem-foot", "aria-live": "polite" }, "");
   const logo = h("img", { src: LOGO_SRC, alt: "" });
   logo.addEventListener("error", () => logo.remove());
-  const node = h("div", { class: "totem", role: "group", "aria-label": "Prix du diesel" },
+  const node = h("div", { class: "totem", role: "group", "aria-label": "Prix du gazole" },
     h("div", { class: "totem-head" }, logo, h("b", {}, "EXO STATION")),
-    h("div", { class: "totem-row" }, h("span", { class: "totem-name" }, "Diesel"), price),
+    h("div", { class: "totem-row" }, h("span", { class: "totem-name" }, "Gazole"), price),
     foot);
   async function refresh() {
     try {
@@ -38,11 +38,11 @@ export function totem() {
 const annBox = h("div", {}, h("p", { class: "muted" }, "Chargement des annonces…"));
 const teaser = h("div", { class: "grid" });
 
-app.append(
+app.replaceChildren(
   h("section", { class: "hero" },
     h("div", {},
       h("h1", {}, "Faites le plein à Belle Roche. Affichez-vous sur nos routes."),
-      h("p", { class: "lead" }, "Exo Station est la station-service d'Amboise. Retrouvez ici le prix du diesel en direct et réservez un panneau publicitaire en quelques clics."),
+      h("p", { class: "lead" }, "Exo Station est la station-service d'Amboise. Retrouvez ici le prix du gazole en direct et réservez un panneau publicitaire en quelques clics."),
       h("div", { class: "actions" },
         h("a", { class: "btn btn-primary", href: "panneaux.html" }, "Réserver un panneau"),
         h("a", { class: "btn btn-ghost", href: "compte.html" }, "Se connecter"))),

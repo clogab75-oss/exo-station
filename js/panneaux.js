@@ -4,7 +4,7 @@ import { RangePicker, availabilityCalendar } from "./calendar.js";
 const profile = await initChrome("panneaux");
 const app = document.getElementById("app");
 const grid = h("div", { class: "grid" });
-app.append(
+app.replaceChildren(
   h("h1", {}, "Panneaux publicitaires"),
   h("p", { class: "lead muted" }, "Choisis un panneau, vérifie ses disponibilités et réserve directement. Le paiement se fait ensuite en jeu auprès de la direction d'Exo Station."),
   grid);

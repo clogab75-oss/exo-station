@@ -186,7 +186,7 @@ export function readImageSize(file) {
   });
 }
 
-/* ------------------------------------------------------------ prix du diesel */
+/* ------------------------------------------------------------ prix du gazole */
 export async function fetchFuelPrice() {
   const { data, error } = await sb.rpc("get_current_fuel_price");
   if (error) throw error;

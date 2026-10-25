@@ -119,7 +119,7 @@ function install(root) {
 
 /* ============================================================ actions communes */
 async function act(btn, fn, args, okMsg) {
-  await run(btn, async () => { const { error } = await sb.rpc(fn, args); if (error) throw error; toast(okMsg, "ok"); await S.reload(); });
+  await run(btn, async () => { const { error } = await sb.rpc(fn, args); if (error) throw error; toast(okMsg, "ok"); callFn("admin-actions", { action: "flush_notifications" }).catch(() => {}); await S.reload(); });
 }
 
 function resDialog(r) {

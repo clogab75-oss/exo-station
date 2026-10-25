@@ -1,31 +1,12 @@
-import { sb, h, clear, initChrome, fetchFuelPrice, priceText, frDateTime, eur } from "./core.js";
+import { sb, h, clear, initChrome, eur } from "./core.js";
 
 await initChrome("tarifs");
 const app = document.getElementById("app");
-const box = h("div", {});
 const rules = h("div", {});
 app.replaceChildren(
   h("h1", {}, "Tarifs"),
-  h("p", { class: "lead muted" }, "Le prix du gazole vient directement du serveur de jeu. Il ne peut pas être modifié depuis ce site."),
-  box,
-  h("h2", { style: "margin-top:2.5rem" }, "Publicité sur les panneaux"), rules);
-
-async function load() {
-  try {
-    const f = await fetchFuelPrice();
-    clear(box);
-    if (!f) {
-      box.append(h("div", { class: "notice warn" }, h("b", {}, "Tarif temporairement indisponible."),
-        h("p", { style: "margin:.3rem 0 0" }, "Aucune synchronisation n'a encore eu lieu. Le prix apparaîtra ici automatiquement.")));
-    } else {
-      box.append(h("div", { class: "kpis" },
-        h("div", { class: "kpi" }, "Gazole", h("b", {}, `${priceText(f.price)} €`)),
-        h("div", { class: "kpi" }, "Dernière synchronisation", h("b", { style: "font-size:1.3rem" }, frDateTime(f.synced_at)))));
-      if (f.is_stale) box.append(h("div", { class: "notice warn" }, "Ce prix n'a pas été actualisé récemment : il peut avoir changé en jeu."));
-    }
-  } catch { clear(box).append(h("div", { class: "notice err" }, "Impossible de joindre le serveur pour l'instant.")); }
-}
-load(); setInterval(load, 60_000);
+  h("p", { class: "lead muted" }, "Prix de la publicité sur les panneaux d'Exo Station, par jour de réservation."),
+  rules);
 
 (async () => {
   const [{ data: cfg }, { data: panels }] = await Promise.all([

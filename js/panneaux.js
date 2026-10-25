@@ -1,4 +1,4 @@
-import { sb, h, clear, initChrome, eur, frDate, todayISO, addDays, openDialog, toast, friendly, run, callFn, readImageSize, panelPhotoUrl, mb, AppError } from "./core.js";
+import { sb, h, clear, initChrome, eur, frDate, todayISO, addDays, openDialog, toast, friendly, run, callFn, readImageSize, panelPhotoUrl, mb, AppError, imageFitsPanel, imageRule } from "./core.js";
 import { RangePicker, availabilityCalendar } from "./calendar.js";
 
 const profile = await initChrome("panneaux");
@@ -60,7 +60,7 @@ function openBooking(p) {
   if (!profile) {
     const cal = availabilityCalendar(busy);
     openDialog(p.name, h("div", { class: "two-col" }, cal.el,
-      h("div", {}, h("p", {}, `Image attendue : ${p.width_px} × ${p.height_px} px (PNG ou JPG). ${eur(p.daily_price)} par jour.`),
+      h("div", {}, h("p", {}, `Image attendue : format ${p.width_px} × ${p.height_px}, à toute échelle jusqu'à ×4 (PNG ou JPG). ${eur(p.daily_price)} par jour.`),
         h("div", { class: "notice warn" }, "Connecte-toi pour réserver ce panneau."),
         h("a", { class: "btn btn-primary", href: "compte.html?next=panneaux.html" }, "Se connecter ou créer un compte"))));
     return;
@@ -101,8 +101,8 @@ function openBooking(p) {
     if (file.size > maxBytes) return showErr(`Image trop lourde : ${mb(file.size)} (maximum ${mb(maxBytes)}).`);
     try {
       const { width, height, url } = await readImageSize(file);
-      if (width !== p.width_px || height !== p.height_px)
-        return showErr(`Mauvaises dimensions : ton image fait ${width} × ${height} px, mais ce panneau exige exactement ${p.width_px} × ${p.height_px} px.`);
+      if (!imageFitsPanel(width, height, p.width_px, p.height_px))
+        return showErr(`Mauvaises dimensions : ton image fait ${width} × ${height} px, mais ce panneau demande le ${imageRule(p)}.`);
       preview.src = url; preview.hidden = false; imgOk = true; refreshSubmit();
     } catch (e) { showErr(friendly(e)); }
   });
@@ -122,7 +122,7 @@ function openBooking(p) {
         h("p", { class: "muted", style: "margin-top:0" }, `${p.location ? p.location + " — " : ""}image de ${p.width_px} × ${p.height_px} px, ${eur(p.daily_price)} par jour.`),
         dates, quoteBox,
         h("div", { class: "field" }, h("label", { for: "ad-file" }, "Ton image publicitaire"), input,
-          h("p", { class: "hint" }, `PNG ou JPG, ${p.width_px} × ${p.height_px} px exactement, ${mb(maxBytes)} maximum.`), preview),
+          h("p", { class: "hint" }, `PNG ou JPG, ${imageRule(p)}, ${mb(maxBytes)} maximum.`), preview),
         err,
         h("div", { class: "notice" }, "Aucun paiement n'a lieu sur le site. Après la réservation, viens régler en argent RP auprès de la direction : la publicité n'est installée qu'une fois le paiement confirmé."))),
     [submit]);

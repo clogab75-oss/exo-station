@@ -122,6 +122,9 @@ input:focus, select:focus, textarea:focus { border-color: var(--blue); outline: 
 .st-installee { color: var(--green); }
 .st-terminee { color: var(--grey); }
 .st-annulee { color: var(--red); }
+.st-livree { color: var(--green); }
+.shop-qty { display: flex; gap: .5rem; flex-wrap: wrap; margin-top: .5rem; }
+.shop-total { font: 800 1.6rem/1.2 var(--font-head); color: var(--ink); margin: .8rem 0; }
 
 .notice { border-left: 5px solid var(--blue); background: var(--mist); padding: .8rem 1rem; border-radius: 0 8px 8px 0; margin: 1rem 0; }
 .notice.warn { border-color: var(--orange); background: #fff4e5; }

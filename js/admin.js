@@ -1,22 +1,24 @@
 import { sb, h, clear, initChrome, eur, frDate, frDateTime, todayISO, addDays, diffDays, openDialog, confirmDialog, toast, friendly, run, callFn,
-  statusBadge, STATUS, signedUrl, panelPhotoUrl, readImageSize, mb } from "./core.js";
+  statusBadge, STATUS, signedUrl, panelPhotoUrl, readImageSize, mb, eur2, shopBadge, SHOP_STATUS, shopImageUrl, qty } from "./core.js";
 import { RangePicker } from "./calendar.js";
 
 const profile = await initChrome("admin");
 const app = document.getElementById("app");
 
 /* ============================================================ état */
-const S = { panels: [], reservations: [], clients: [], tab: "planning", filter: {}, plan: { view: "mois", anchor: todayISO() } };
-const TABS = [["planning", "Planning"], ["install", "À installer"], ["reservations", "Réservations"], ["panels", "Panneaux"], ["clients", "Clients"], ["journal", "Journal"], ["settings", "Annonces et réglages"]];
+const S = { panels: [], reservations: [], clients: [], items: [], orders: [], tab: "planning", filter: {}, plan: { view: "mois", anchor: todayISO() } };
+const TABS = [["planning", "Planning"], ["install", "À installer"], ["reservations", "Réservations"], ["panels", "Panneaux"], ["items", "Articles"], ["orders", "Commandes"], ["clients", "Clients"], ["journal", "Journal"], ["settings", "Annonces et réglages"]];
 
 async function loadData() {
-  const [p, r, c] = await Promise.all([
+  const [p, r, c, it, od] = await Promise.all([
     sb.from("panels").select("*").order("sort_order").order("name"),
     sb.from("reservations").select("*, profiles(nom_rp, prenom_rp), panels(name, width_px, height_px), reservation_images(id, storage_path, is_current)").order("start_date", { ascending: false }),
     sb.from("profiles").select("*").eq("role", "client").order("created_at", { ascending: false }),
+    sb.from("shop_items").select("*").order("sort_order").order("name"),
+    sb.from("shop_orders").select("*, profiles(nom_rp, prenom_rp)").order("created_at", { ascending: false }),
   ]);
-  for (const x of [p, r, c]) if (x.error) throw x.error;
-  S.panels = p.data; S.reservations = r.data; S.clients = c.data;
+  for (const x of [p, r, c, it, od]) if (x.error) throw x.error;
+  S.panels = p.data; S.reservations = r.data; S.clients = c.data; S.items = it.data; S.orders = od.data;
 }
 const who = (r) => (r.profiles ? `${r.profiles.prenom_rp} ${r.profiles.nom_rp}` : "—");
 const curImg = (r) => r.reservation_images?.find((i) => i.is_current);
@@ -34,10 +36,11 @@ async function start() {
     const n = (f) => S.reservations.filter(f).length;
     clear(kpis).append(
       kpi("À payer", n((r) => r.status === "a_payer")), kpi("À installer", n((r) => r.status === "payee")),
+      kpi("Commandes à payer", S.orders.filter((o) => o.status === "a_payer").length),
       kpi("Demandes d'annulation", n((r) => r.cancel_requested && !["annulee", "terminee"].includes(r.status))), kpi("Clients inscrits", S.clients.length));
     clear(tabs).append(...TABS.map(([id, label]) => h("button", { class: "tab", role: "tab", type: "button", "aria-selected": String(id === S.tab), onclick: () => { S.tab = id; paint(); } }, label)));
     clear(view);
-    ({ planning, install, reservations, panels, clients, journal, settings })[S.tab](view);
+    ({ planning, install, reservations, panels, items, orders, clients, journal, settings })[S.tab](view);
   }
   S.reload = reload;
   await reload();
@@ -230,6 +233,88 @@ function panelForm(p) {
       }
       dlg.close(); toast("Panneau enregistré.", "ok"); await S.reload();
     }); });
+}
+
+
+/* ============================================================ boutique : articles */
+function items(root) {
+  root.append(h("p", {}, h("button", { class: "btn btn-primary", type: "button", onclick: () => itemForm() }, "Ajouter un article")));
+  if (!S.items.length) return root.append(empty("Aucun article pour l'instant."));
+  root.append(table(["Image", "Nom", "Prix unitaire", "Minimum", "Stock", "État", ""], S.items.map((it) => {
+    const url = shopImageUrl(it.image_path);
+    return h("tr", {}, h("td", {}, url ? h("img", { src: url, alt: "", style: "width:80px;border-radius:6px" }) : "—"), h("td", {}, h("b", {}, it.name)),
+      h("td", {}, `${eur2(it.unit_price)} / ${it.unit_label}`), h("td", {}, qty(it.min_quantity)), h("td", {}, it.stock === null ? "Illimité" : qty(it.stock)),
+      h("td", {}, h("span", { class: `badge ${it.is_active ? "st-installee" : "st-terminee"}` }, it.is_active ? "En vente" : "Masqué")),
+      h("td", {}, h("div", { class: "res-actions" },
+        h("button", { class: "btn btn-ghost btn-sm", type: "button", onclick: () => itemForm(it) }, "Modifier"),
+        h("button", { class: "btn btn-ghost btn-sm", type: "button", onclick: (e) => run(e.target, async () => { const { error } = await sb.from("shop_items").update({ is_active: !it.is_active }).eq("id", it.id); if (error) throw error; await S.reload(); }) }, it.is_active ? "Masquer" : "Mettre en vente"),
+        h("button", { class: "btn btn-danger btn-sm", type: "button", onclick: async (e) => { if (await confirmDialog("Supprimer l'article", `Supprimer « ${it.name} » ? Les commandes déjà passées gardent son nom et son prix.`, "Supprimer", true))
+          run(e.target, async () => { const { error } = await sb.from("shop_items").delete().eq("id", it.id); if (error) throw error; if (it.image_path) await sb.storage.from("shop-images").remove([it.image_path]); toast("Article supprimé.", "ok"); await S.reload(); }); } }, "Supprimer"))));
+  })));
+}
+
+function itemForm(it) {
+  const v = it ?? { name: "", description: "", unit_price: "", unit_label: "unité", min_quantity: 1, stock: null, is_active: true, sort_order: 0 };
+  const photo = h("input", { id: "if-photo", type: "file", accept: "image/png,image/jpeg,image/webp" });
+  const F = (id, label, attrs = {}, hint) => h("div", { class: "field" }, h("label", { for: id }, label), attrs.tag === "textarea" ? h("textarea", { id, rows: 3, value: attrs.value }) : h("input", { id, ...attrs }), hint ? h("p", { class: "hint" }, hint) : null);
+  const form = h("form", {},
+    F("if-name", "Nom de l'article", { value: v.name, required: true, maxlength: 80 }),
+    F("if-desc", "Description", { tag: "textarea", value: v.description }),
+    h("div", { class: "row" }, F("if-price", "Prix à l'unité (€)", { type: "number", min: 0.01, step: "0.01", value: v.unit_price, required: true }),
+      F("if-unit", "Unité (bidon, kg, pièce…)", { value: v.unit_label, required: true, maxlength: 30 }),
+      F("if-min", "Quantité minimale", { type: "number", min: 1, step: 1, value: v.min_quantity, required: true })),
+    h("div", { class: "row" }, F("if-stock", "Stock", { type: "number", min: 0, step: 1, value: v.stock ?? "", placeholder: "vide = illimité" }, "Laisse vide pour un stock illimité. Le stock baisse à chaque commande."),
+      F("if-order", "Ordre d'affichage", { type: "number", value: v.sort_order })),
+    h("div", { class: "field" }, h("label", { for: "if-photo" }, "Image de l'article (PNG, JPG ou WebP, 5 Mo max)"), photo),
+    h("label", { style: "display:flex;gap:.5rem;align-items:center;font-weight:500" }, h("input", { id: "if-active", type: "checkbox", checked: v.is_active, style: "width:auto" }), "En vente (visible dans la boutique)"));
+  const save = h("button", { class: "btn btn-primary", type: "submit" }, "Enregistrer");
+  form.append(h("div", { class: "dlg-foot", style: "padding:1rem 0 0" }, save));
+  const dlg = openDialog(it ? `Modifier « ${it.name} »` : "Nouvel article", form);
+  form.addEventListener("submit", (e) => { e.preventDefault();
+    run(save, async () => {
+      const g = (id) => form.querySelector("#" + id);
+      const f = photo.files[0];
+      if (f && f.size > 5 * 1048576) throw new Error("Image trop lourde (5 Mo maximum).");
+      const stockTxt = g("if-stock").value.trim();
+      const row = { name: g("if-name").value.trim(), description: g("if-desc").value, unit_price: +g("if-price").value, unit_label: g("if-unit").value.trim() || "unité",
+        min_quantity: Math.max(1, Math.floor(+g("if-min").value || 1)), stock: stockTxt === "" ? null : Math.max(0, Math.floor(+stockTxt)), sort_order: +g("if-order").value || 0, is_active: g("if-active").checked };
+      let id = it?.id;
+      if (it) { const { error } = await sb.from("shop_items").update(row).eq("id", id); if (error) throw error; }
+      else { const { data, error } = await sb.from("shop_items").insert(row).select("id").single(); if (error) throw error; id = data.id; }
+      if (f) {
+        const ext = f.type === "image/png" ? "png" : f.type === "image/webp" ? "webp" : "jpg", path = `${id}-${Date.now()}.${ext}`;
+        const up = await sb.storage.from("shop-images").upload(path, f, { contentType: f.type, upsert: false });
+        if (up.error) throw up.error;
+        const { error } = await sb.from("shop_items").update({ image_path: path }).eq("id", id); if (error) throw error;
+        if (it?.image_path) await sb.storage.from("shop-images").remove([it.image_path]);
+      }
+      dlg.close(); toast("Article enregistré.", "ok"); await S.reload();
+    }); });
+}
+
+/* ============================================================ boutique : commandes */
+function orders(root) {
+  const f = S.filter;
+  const sel = h("select", { id: "ofstatus", onchange: (e) => { S.filter = { ...S.filter, ostatus: e.target.value }; S.reload(); } },
+    h("option", { value: "" }, "Toutes"), ...Object.entries(SHOP_STATUS).map(([k, l]) => h("option", { value: k, selected: f.ostatus === k }, l)));
+  root.append(h("div", { class: "filters" }, h("div", {}, h("label", { for: "ofstatus" }, "Statut"), sel)));
+  const rows = S.orders.filter((o) => !f.ostatus || o.status === f.ostatus);
+  if (!rows.length) return root.append(empty("Aucune commande ne correspond."));
+  root.append(table(["Date", "Client", "Article", "Quantité", "Total", "Statut", ""], rows.map((o) => h("tr", {},
+    h("td", {}, frDateTime(o.created_at)), h("td", {}, o.profiles ? `${o.profiles.prenom_rp} ${o.profiles.nom_rp}` : "—"),
+    h("td", {}, o.item_name, o.note ? h("div", { class: "small muted" }, `« ${o.note} »`) : null), h("td", {}, `${qty(o.quantity)} ${o.unit_label}`),
+    h("td", {}, h("b", {}, eur(o.total_price))), h("td", {}, shopBadge(o.status)),
+    h("td", {}, h("div", { class: "res-actions" },
+      o.status === "a_payer" ? h("button", { class: "btn btn-primary btn-sm", type: "button", onclick: async (e) => { if (await confirmDialog("Confirmer le paiement", `Confirmer que ${o.profiles?.prenom_rp ?? ""} ${o.profiles?.nom_rp ?? ""} a payé ${eur(o.total_price)} en argent RP ?`, "Oui, payé")) act(e.target, "admin_confirm_shop_payment", { p_id: o.id }, "Paiement confirmé."); } }, "Confirmer le paiement") : null,
+      o.status === "payee" ? h("button", { class: "btn btn-primary btn-sm", type: "button", onclick: (e) => act(e.target, "admin_mark_shop_delivered", { p_id: o.id }, "Commande marquée livrée.") }, "Marquer livrée") : null,
+      ["a_payer", "payee"].includes(o.status) ? h("button", { class: "btn btn-danger btn-sm", type: "button", onclick: () => cancelOrder(o) }, "Annuler") : null))))));
+}
+
+function cancelOrder(o) {
+  const reason = h("textarea", { id: "oc-reason", rows: 3, maxlength: 500, placeholder: "Motif (visible par le client)" });
+  const go = h("button", { class: "btn btn-danger", type: "button" }, "Annuler la commande");
+  const dlg = openDialog("Annuler la commande", h("div", {}, h("p", {}, `${qty(o.quantity)} × ${o.item_name} — le stock sera remis.`), h("div", { class: "field" }, h("label", { for: "oc-reason" }, "Motif"), reason)), [go]);
+  go.onclick = () => act(go, "admin_cancel_shop_order", { p_id: o.id, p_reason: reason.value }, "Commande annulée.").then(() => dlg.close());
 }
 
 /* ============================================================ clients */

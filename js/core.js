@@ -46,6 +46,11 @@ export const mb = (bytes) => `${(bytes / 1048576).toFixed(1).replace(".", ",")} 
 export const STATUS = {
   a_payer: "À payer", payee: "Payée", installee: "Installée", terminee: "Terminée", annulee: "Annulée",
 };
+export const SHOP_STATUS = { a_payer: "À payer", payee: "Payée", livree: "Livrée", annulee: "Annulée" };
+export const shopBadge = (s) => h("span", { class: `badge st-${s}` }, SHOP_STATUS[s] ?? s);
+export const eur2 = (n) => (Number.isInteger(Number(n)) ? eur(n) : `${Number(n).toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`);
+export const qty = (n) => Number(n).toLocaleString("fr-FR");
+export const shopImageUrl = (path) => (path ? sb.storage.from("shop-images").getPublicUrl(path).data.publicUrl : null);
 export const statusBadge = (s) => h("span", { class: `badge st-${s}` }, STATUS[s] ?? s);
 
 /* ------------------------------------------------------------ erreurs & messages */
@@ -116,6 +121,7 @@ const PAGES = [
   ["index.html", "Accueil", "accueil"],
   ["tarifs.html", "Tarifs", "tarifs"],
   ["panneaux.html", "Panneaux", "panneaux"],
+  ["boutique.html", "Boutique", "boutique"],
   ["compte.html", "Mon compte", "compte"],
 ];
 
@@ -192,3 +198,10 @@ export async function fetchFuelPrice() {
   if (error) throw error;
   return Array.isArray(data) ? data[0] ?? null : data ?? null;
 }
+
+/* ------------------------------------------------------------ images de pub : même format que le panneau, taille de 1x à 4x */
+export function imageFitsPanel(w, h, pw, ph) {
+  return w > 0 && h > 0 && Math.abs(w * ph - h * pw) * 100 <= w * ph
+    && w * 100 >= pw * 99 && h * 100 >= ph * 99 && w * 100 <= pw * 404 && h * 100 <= ph * 404;
+}
+export const imageRule = (p) => `format ${p.width_px} × ${p.height_px} (toute taille proportionnelle de ${p.width_px} × ${p.height_px} à ${p.width_px * 4} × ${p.height_px * 4} px, par exemple ${Math.round(p.width_px * 1.5)} × ${Math.round(p.height_px * 1.5)})`;

@@ -1,4 +1,4 @@
-import { sb, h, clear, initChrome, eur, frDate, frDateTime, todayISO, addDays, openDialog, confirmDialog, toast, friendly, run, callFn,
+import { eur2, shopBadge, imageFitsPanel, imageRule, sb, h, clear, initChrome, eur, frDate, frDateTime, todayISO, addDays, openDialog, confirmDialog, toast, friendly, run, callFn,
   setSessionFrom, logout, statusBadge, signedUrl, readImageSize, mb } from "./core.js";
 import { RangePicker } from "./calendar.js";
 
@@ -77,14 +77,38 @@ function renderAuth() {
 
 /* ------------------------------------------------------------------ espace client */
 async function renderAccount() {
+  const orderList = h("div", {}, h("p", { class: "muted" }, "Chargement de tes commandes…"));
   const list = h("div", {}, h("p", { class: "muted" }, "Chargement de tes réservations…"));
   app.replaceChildren(
     h("div", { style: "display:flex;gap:1rem;align-items:center;flex-wrap:wrap" },
       h("h1", { style: "margin:0" }, `${profile.prenom_rp} ${profile.nom_rp}`),
       h("button", { class: "btn btn-ghost btn-sm", type: "button", onclick: logout }, "Se déconnecter"),
       profile.role === "admin" ? h("a", { class: "btn btn-blue btn-sm", href: "admin.html" }, "Administration") : null),
-    h("h2", { style: "margin-top:2rem" }, "Mes réservations"), list);
-  await refresh();
+    h("h2", { style: "margin-top:2rem" }, "Mes réservations"), list,
+    h("h2", { id: "commandes", style: "margin-top:2.5rem" }, "Mes commandes boutique"), orderList);
+  await Promise.all([refresh(), refreshOrders()]);
+
+  async function refreshOrders() {
+    const [{ data, error }, { data: cfg }] = await Promise.all([
+      sb.from("shop_orders").select("*").order("created_at", { ascending: false }),
+      sb.from("server_configuration").select("value").eq("key", "payment_instructions").maybeSingle(),
+    ]);
+    clear(orderList);
+    if (error) return orderList.append(h("p", { class: "notice err" }, friendly(error)));
+    if (!data.length) return orderList.append(h("div", { class: "notice" }, "Tu n'as encore passé aucune commande. ", h("a", { href: "boutique.html" }, "Voir la boutique")));
+    for (const o of data) orderList.append(h("article", { class: "res-card", style: "grid-template-columns:1fr auto" },
+      h("div", {},
+        h("h3", {}, o.item_name),
+        h("p", { style: "margin:0" }, `${Number(o.quantity).toLocaleString("fr-FR")} ${o.unit_label} × ${eur2(o.unit_price)} = `, h("b", {}, eur(o.total_price))),
+        h("p", { class: "muted small", style: "margin:.2rem 0 0" }, `Commandée le ${frDateTime(o.created_at)}`),
+        o.status === "a_payer" ? h("p", { class: "notice warn", style: "margin:.6rem 0 0" }, `À payer en jeu : ${eur(o.total_price)}. `, cfg?.value ?? "") : null,
+        o.paid_at ? h("p", { class: "muted small", style: "margin:.4rem 0 0" }, `Payée le ${frDateTime(o.paid_at)} (${eur(o.paid_amount)}).`) : null,
+        o.status === "annulee" && o.cancel_reason ? h("p", { class: "muted small", style: "margin:.4rem 0 0" }, `Motif : ${o.cancel_reason}`) : null),
+      h("div", { style: "display:grid;gap:.6rem;justify-items:end" }, shopBadge(o.status),
+        o.status === "a_payer" ? h("button", { class: "btn btn-ghost btn-sm", type: "button", onclick: async (e) => {
+          if (!(await confirmDialog("Annuler la commande", `Annuler ta commande de ${Number(o.quantity).toLocaleString("fr-FR")} × ${o.item_name} ?`, "Oui, annuler", true))) return;
+          run(e.target, async () => { const { error: er } = await sb.rpc("cancel_my_shop_order", { p_id: o.id }); if (er) throw er; callFn("admin-actions", { action: "flush_notifications" }).catch(() => {}); toast("Commande annulée.", "ok"); await refreshOrders(); }); } }, "Annuler la commande") : null)));
+  }
 
   async function refresh() {
     const [{ data, error }, { data: cfg }] = await Promise.all([
@@ -158,12 +182,12 @@ async function renderAccount() {
       if (!/^image\/(png|jpeg)$/.test(f.type)) return show("Format refusé : PNG, JPG ou JPEG uniquement.");
       try {
         const { width, height, url } = await readImageSize(f);
-        if (width !== p.width_px || height !== p.height_px) return show(`Mauvaises dimensions : ${width} × ${height} px au lieu de ${p.width_px} × ${p.height_px} px.`);
+        if (!imageFitsPanel(width, height, p.width_px, p.height_px)) return show(`Mauvaises dimensions : ${width} × ${height} px, il faut le ${imageRule(p)}.`);
         preview.src = url; preview.hidden = false; go.disabled = false;
       } catch (e) { show(friendly(e)); }
     });
     const dlg = openDialog("Changer l'image", h("div", {},
-      h("div", { class: "field" }, h("label", { for: "new-img" }, `Nouvelle image (${p.width_px} × ${p.height_px} px)`), input, preview), err), [go]);
+      h("div", { class: "field" }, h("label", { for: "new-img" }, `Nouvelle image (format ${p.width_px} × ${p.height_px}, toute échelle jusqu'à ×4)`), input, preview), err), [go]);
     go.addEventListener("click", () => run(go, async () => {
       const form = new FormData();
       form.set("action", "replace_image"); form.set("reservation_id", r.id); form.set("image", input.files[0]);

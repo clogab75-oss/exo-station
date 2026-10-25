@@ -242,7 +242,7 @@ function items(root) {
   if (!S.items.length) return root.append(empty("Aucun article pour l'instant."));
   root.append(table(["Image", "Nom", "Prix unitaire", "Minimum", "Stock", "État", ""], S.items.map((it) => {
     const url = shopImageUrl(it.image_path);
-    return h("tr", {}, h("td", {}, url ? h("img", { src: url, alt: "", style: "width:80px;border-radius:6px" }) : "—"), h("td", {}, h("b", {}, it.name)),
+    return h("tr", {}, h("td", {}, url ? h("img", { src: url, alt: "", style: "width:80px;height:60px;object-fit:contain;border-radius:6px;background:#fff" }) : "—"), h("td", {}, h("b", {}, it.name)),
       h("td", {}, `${eur2(it.unit_price)} / ${it.unit_label}`), h("td", {}, qty(it.min_quantity)), h("td", {}, it.stock === null ? "Illimité" : qty(it.stock)),
       h("td", {}, h("span", { class: `badge ${it.is_active ? "st-installee" : "st-terminee"}` }, it.is_active ? "En vente" : "Masqué")),
       h("td", {}, h("div", { class: "res-actions" },

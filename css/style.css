@@ -107,6 +107,7 @@ input:focus, select:focus, textarea:focus { border-color: var(--blue); outline: 
 .panel-card { border: 1.5px solid var(--line); border-radius: 14px; overflow: hidden; background: #fff; display: flex; flex-direction: column; }
 .panel-card.off { opacity: .72; }
 .panel-photo { aspect-ratio: 16 / 9; background: var(--mist); display: grid; place-items: center; color: var(--muted); object-fit: cover; width: 100%; }
+.panel-photo.shop-photo { object-fit: contain; padding: .8rem; box-sizing: border-box; background: #fff; border-bottom: 1px solid var(--line); }
 .panel-body { padding: 1rem 1.1rem 1.2rem; display: flex; flex-direction: column; gap: .5rem; flex: 1; }
 .panel-body h3 { margin: 0; }
 .facts { display: flex; flex-wrap: wrap; gap: .4rem .5rem; padding: 0; margin: 0; list-style: none; }

@@ -11,7 +11,7 @@ function card(it) {
   const out = it.stock !== null && it.stock <= 0;
   const order = h("button", { class: "btn btn-primary", type: "button", disabled: out, onclick: () => openOrder(it) }, out ? "Rupture de stock" : "Commander");
   return h("article", { class: "panel-card" },
-    url ? h("img", { class: "panel-photo", src: url, alt: it.name, loading: "lazy" }) : h("div", { class: "panel-photo" }, "Photo à venir"),
+    url ? h("img", { class: "panel-photo shop-photo", src: url, alt: it.name, loading: "lazy" }) : h("div", { class: "panel-photo" }, "Photo à venir"),
     h("div", { class: "panel-body" },
       h("h3", {}, it.name),
       it.description ? h("p", { class: "muted", style: "margin:0" }, it.description) : null,

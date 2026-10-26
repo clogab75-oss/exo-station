@@ -90,7 +90,7 @@ async function renderAccount() {
 
   async function refreshOrders() {
     const [{ data, error }, { data: cfg }] = await Promise.all([
-      sb.from("shop_orders").select("*").order("created_at", { ascending: false }),
+      sb.from("shop_orders").select("*, shop_order_lines(*)").order("created_at", { ascending: false }),
       sb.from("server_configuration").select("value").eq("key", "payment_instructions").maybeSingle(),
     ]);
     clear(orderList);
@@ -98,8 +98,11 @@ async function renderAccount() {
     if (!data.length) return orderList.append(h("div", { class: "notice" }, "Tu n'as encore passé aucune commande. ", h("a", { href: "boutique.html" }, "Voir la boutique")));
     for (const o of data) orderList.append(h("article", { class: "res-card", style: "grid-template-columns:1fr auto" },
       h("div", {},
-        h("h3", {}, o.item_name),
-        h("p", { style: "margin:0" }, `${Number(o.quantity).toLocaleString("fr-FR")} ${o.unit_label} × ${eur2(o.unit_price)} = `, h("b", {}, eur(o.total_price))),
+        h("h3", {}, "Commande du " + frDate(o.created_at.slice(0, 10))),
+        h("ul", { style: "margin:.2rem 0 .4rem;padding-left:1.2rem" }, (o.shop_order_lines ?? []).map((l) =>
+          h("li", {}, `${Number(l.quantity).toLocaleString("fr-FR")} × ${l.item_name} — ${eur2(l.line_total)}`))),
+        o.discount_percent > 0 ? h("p", { style: "margin:0" }, h("s", { class: "muted" }, eur2(o.subtotal)), ` Remise de quantité -${Number(o.discount_percent)} % = `, h("b", {}, eur2(o.total_price)))
+          : h("p", { style: "margin:0" }, "Total : ", h("b", {}, eur2(o.total_price))),
         h("p", { class: "muted small", style: "margin:.2rem 0 0" }, `Commandée le ${frDateTime(o.created_at)}`),
         o.status === "a_payer" ? h("p", { class: "notice warn", style: "margin:.6rem 0 0" }, `À payer en jeu : ${eur(o.total_price)}. `, cfg?.value ?? "") : null,
         o.paid_at ? h("p", { class: "muted small", style: "margin:.4rem 0 0" }, `Payée le ${frDateTime(o.paid_at)} (${eur(o.paid_amount)}).`) : null,

@@ -15,7 +15,7 @@ async function loadData() {
     sb.from("reservations").select("*, profiles(nom_rp, prenom_rp), panels(name, width_px, height_px), reservation_images(id, storage_path, is_current)").order("start_date", { ascending: false }),
     sb.from("profiles").select("*").eq("role", "client").order("created_at", { ascending: false }),
     sb.from("shop_items").select("*").order("sort_order").order("name"),
-    sb.from("shop_orders").select("*, profiles(nom_rp, prenom_rp)").order("created_at", { ascending: false }),
+    sb.from("shop_orders").select("*, profiles(nom_rp, prenom_rp), shop_order_lines(*)").order("created_at", { ascending: false }),
   ]);
   for (const x of [p, r, c, it, od]) if (x.error) throw x.error;
   S.panels = p.data; S.reservations = r.data; S.clients = c.data; S.items = it.data; S.orders = od.data;
@@ -300,10 +300,10 @@ function orders(root) {
   root.append(h("div", { class: "filters" }, h("div", {}, h("label", { for: "ofstatus" }, "Statut"), sel)));
   const rows = S.orders.filter((o) => !f.ostatus || o.status === f.ostatus);
   if (!rows.length) return root.append(empty("Aucune commande ne correspond."));
-  root.append(table(["Date", "Client", "Article", "Quantité", "Total", "Statut", ""], rows.map((o) => h("tr", {},
+  root.append(table(["Date", "Client", "Articles", "Total articles", "Total", "Statut", ""], rows.map((o) => h("tr", {},
     h("td", {}, frDateTime(o.created_at)), h("td", {}, o.profiles ? `${o.profiles.prenom_rp} ${o.profiles.nom_rp}` : "—"),
-    h("td", {}, o.item_name, o.note ? h("div", { class: "small muted" }, `« ${o.note} »`) : null), h("td", {}, `${qty(o.quantity)} ${o.unit_label}`),
-    h("td", {}, h("b", {}, eur(o.total_price))), h("td", {}, shopBadge(o.status)),
+    h("td", {}, (o.shop_order_lines ?? []).map((l) => h("div", {}, `${qty(l.quantity)} × ${l.item_name}`)), o.note ? h("div", { class: "small muted" }, `« ${o.note} »`) : null), h("td", {}, qty(o.quantity)),
+    h("td", {}, h("b", {}, eur2(o.total_price)), o.discount_percent > 0 ? h("div", { class: "small muted" }, `remise -${Number(o.discount_percent)} %`) : null), h("td", {}, shopBadge(o.status)),
     h("td", {}, h("div", { class: "res-actions" },
       o.status === "a_payer" ? h("button", { class: "btn btn-primary btn-sm", type: "button", onclick: async (e) => { if (await confirmDialog("Confirmer le paiement", `Confirmer que ${o.profiles?.prenom_rp ?? ""} ${o.profiles?.nom_rp ?? ""} a payé ${eur(o.total_price)} en argent RP ?`, "Oui, payé")) act(e.target, "admin_confirm_shop_payment", { p_id: o.id }, "Paiement confirmé."); } }, "Confirmer le paiement") : null,
       o.status === "payee" ? h("button", { class: "btn btn-primary btn-sm", type: "button", onclick: (e) => act(e.target, "admin_mark_shop_delivered", { p_id: o.id }, "Commande marquée livrée.") }, "Marquer livrée") : null,
@@ -313,7 +313,7 @@ function orders(root) {
 function cancelOrder(o) {
   const reason = h("textarea", { id: "oc-reason", rows: 3, maxlength: 500, placeholder: "Motif (visible par le client)" });
   const go = h("button", { class: "btn btn-danger", type: "button" }, "Annuler la commande");
-  const dlg = openDialog("Annuler la commande", h("div", {}, h("p", {}, `${qty(o.quantity)} × ${o.item_name} — le stock sera remis.`), h("div", { class: "field" }, h("label", { for: "oc-reason" }, "Motif"), reason)), [go]);
+  const dlg = openDialog("Annuler la commande", h("div", {}, h("p", {}, `${qty(o.quantity)} article${o.quantity > 1 ? "s" : ""} — le stock sera remis.`), h("div", { class: "field" }, h("label", { for: "oc-reason" }, "Motif"), reason)), [go]);
   go.onclick = () => act(go, "admin_cancel_shop_order", { p_id: o.id, p_reason: reason.value }, "Commande annulée.").then(() => dlg.close());
 }
 
